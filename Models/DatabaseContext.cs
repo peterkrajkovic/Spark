@@ -481,9 +481,9 @@ public partial class DatabaseContext : DbContext
                 .HasMaxLength(100)
                 .IsUnicode(false)
                 .HasColumnName("PASSWORD");
-            entity.Property(e => e.ProfilePhoto)
-                .HasColumnType("BLOB")
-                .HasColumnName("PROFILE_PHOTO");
+            //entity.Property(e => e.ProfilePhoto)
+            //    .HasColumnType("BLOB")
+            //    .HasColumnName("PROFILE_PHOTO");
             entity.Property(e => e.Username)
                 .IsRequired()
                 .HasMaxLength(50)

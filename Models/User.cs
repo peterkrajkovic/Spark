@@ -21,7 +21,7 @@ public partial class User
 
     public string Bio { get; set; }
 
-    public byte[] ProfilePhoto { get; set; }
+    //public byte[] ProfilePhoto { get; set; }
 
     public virtual ICollection<BlockedUser> BlockedUserBlockeds { get; set; } = new List<BlockedUser>();
 

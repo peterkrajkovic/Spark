@@ -1,7 +1,9 @@
 ﻿using DataLoader.Models;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.Runtime.Intrinsics.X86;
 using System.Text;
@@ -179,7 +181,6 @@ namespace DataLoader
             try
             {
                 var db = new DatabaseContext();
-                var users = db.Users.ToList();
                 var groups = db.Groups.ToList();
 
                 for (int i = 0; i < messageCount; i++)
@@ -191,15 +192,15 @@ namespace DataLoader
                         i--;
                         continue;
                     }
-                    var member = groupMembers[random.Next(groupMembers.Count)].User;
+                    var member = groupMembers[random.Next(groupMembers.Count)];
                     var message = GetRandomMessage();
                     db.GroupMessages.Add(new GroupMessage
                     {
                         Group = group,
                         Content = message,
-                        Sender = member,
+                        SenderId = member.UserId,
                         SentAt = RandomDate(group.CreatedAt ?? DateTime.Now, DateTime.Now),
-                        StatusId = random.Next(1, 6)
+                        StatusId = 3
                     });
 
                     db.SaveChanges();
@@ -287,7 +288,7 @@ namespace DataLoader
             if (photoBytes == null)
             {
                 string photoPath = "profile.jpg";
-                
+
 
                 if (!File.Exists(photoPath))
                 {
@@ -305,15 +306,45 @@ namespace DataLoader
             try
             {
                 var db = new DatabaseContext();
-                var users = db.Users.Where(u => u.ProfilePhoto == null).ToList();
-                var photoBytes = GetProfilePhoto();
-                if (photoBytes == null)
+                List<User> users = new();
+                do
                 {
-                    return false;
-                }
-                foreach (var user in users)
+                    //users = db.Users.Take(500)/*.Where(u => u.ProfilePhoto == null || u.ProfilePhoto.Length == 0)*/.ToList();
+                    users = db.Users
+    .FromSqlRaw("SELECT * FROM USERS WHERE PROFILE_PHOTO IS NULL OR dbms_lob.getlength(PROFILE_PHOTO) = 0 FETCH FIRST 500 ROWS ONLY")
+    .ToList();
+                    var photoBytes = GetProfilePhoto();
+                    if (photoBytes == null)
+                    {
+                        return false;
+                    }
+                    foreach (var user in users)
+                    {
+                        //user.ProfilePhoto = photoBytes;
+                        //db.SaveChanges();
+                    }
+                } while (users.Any());
+            }
+            catch (Exception _)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        public static async Task<bool> CreatePosts()
+        {
+            try
+            {
+                var db = new DatabaseContext();
+                var users = db.Users.Take(100).ToList();
+                for (int i = 1; i < 100; i++)
                 {
-                    user.ProfilePhoto = photoBytes;
+                    var user = users[random.Next(users.Count)];
+                    var postDate = RandomDate(user.CreatedAt ?? DateTime.Now, DateTime.Now);
+                    string message = GetRandomMessage();
+                    db.Posts.Add(
+                        new Post() { PostId = i, UserId = user.UserId, CreatedAt = postDate, PostComment = message, Photo = GetProfilePhoto() });
                     db.SaveChanges();
                 }
             }
@@ -324,6 +355,60 @@ namespace DataLoader
             return true;
         }
 
-    }
+        public static async Task<bool> CreateLikes(int likeCount)
+        {
+            try
+            {
+                var db = new DatabaseContext();
+                var posts = db.Posts.ToList();
+                for (int i = 0; i < likeCount; i++)
+                {
+                    var users = db.Users
+                        .OrderBy(u => Guid.NewGuid())
+                        .Take(1)
+                        .ToList();
 
+                    var user = users[0];
+                    var post = posts[random.Next(posts.Count)];
+                    var likeDate = new[] { user.CreatedAt ?? DateTime.UtcNow, post.CreatedAt ?? DateTime.UtcNow }.Min();
+                    db.Likes.Add(
+                        new Like() { UserId = user.UserId, PostId = post.PostId, CreatedAt = RandomDate(likeDate, DateTime.Now) });
+                    db.SaveChanges();
+                }
+            }
+            catch (Exception _)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        public static async Task<bool> CreateComments(int commentCount)
+        {
+            try
+            {
+                var db = new DatabaseContext();
+                var posts = db.Posts.ToList();
+                for (int i = 0; i < commentCount; i++)
+                {
+                    var users = db.Users
+                        .OrderBy(u => Guid.NewGuid())
+                        .Take(1)
+                        .ToList();
+
+                    var user = users[0];
+                    var post = posts[random.Next(posts.Count)];
+                    var commentDate = new[] { user.CreatedAt ?? DateTime.UtcNow, post.CreatedAt ?? DateTime.UtcNow }.Min();
+                    db.Comments.Add(
+                        new Comment() { UserId = user.UserId, PostId = post.PostId, CreatedAt = RandomDate(commentDate, DateTime.Now), Content = GetRandomMessage() });
+                    db.SaveChanges();
+                }
+            }
+            catch (Exception _)
+            {
+                return false;
+            }
+            return true;
+        }
+    }
 }
